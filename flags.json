@@ -1,18 +1,26 @@
 {
-	"flags": {
-		"new-homepage": {
-			"key": "new-homepage",
-			"on": true,
-			"variations": [
-				{
-					"value": true,
-					"weight": 50
-				},
-				{
-					"value": false,
-					"weight": 50
-				}
-			]
-		}
-	}
+    "flags": {
+        "new-homepage": {
+            "key": "new-homepage",
+            "on": true,
+            "variations": [
+                true,
+                false
+            ],
+            "fallthrough": {
+                "variation": 0
+            }
+        },
+        "new-shop-feature": {
+            "key": "new-shop-feature",
+            "on": true,
+            "variations": [
+                true,
+                false
+            ],
+            "fallthrough": {
+                "variation": 1
+            }
+        }
+    }
 }

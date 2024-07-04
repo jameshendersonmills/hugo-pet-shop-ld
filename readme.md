@@ -3,6 +3,8 @@ Hugo's Pet Store with Go & LaunchDarkly
 Pre-Reqs:
 - Make sure you have a LaunchDarkly SDK Key
 - Ensure that Go is installed on your local machine - goland.org 
+- go mod tidy 
+- Ensure you have some flags created in the LD Dashboard - https://app.launchdarkly.com/projects/default/flags
 
 
 1. Navigate to the clone repo folder Hugos Pet Store and run: 'go mod init hugos-pet-shop'
