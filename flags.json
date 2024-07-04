@@ -1,0 +1,18 @@
+{
+	"flags": {
+		"new-homepage": {
+			"key": "new-homepage",
+			"on": true,
+			"variations": [
+				{
+					"value": true,
+					"weight": 50
+				},
+				{
+					"value": false,
+					"weight": 50
+				}
+			]
+		}
+	}
+}
