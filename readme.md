@@ -74,4 +74,4 @@ Contributions are welcome! Please open an issue or submit a pull request for any
 
 ## Contact
 
-For questions or suggestions, please contact [yourname](mailto:yourname@example.com).
+For questions or suggestions, please contact [James](mailto:james@hendersonmills.co.uk).
