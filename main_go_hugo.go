@@ -38,11 +38,19 @@ func main() {
     }
     defer ldClient.Close()
 
-    user := ldcontext.New("example-user-key")
+      // Create new user context named Hugo with additional attributes
+    user := ldcontext.NewBuilder("Hugo").
+        SetString("firstName", "Hugo").
+        SetString("lastName", "Henderson-Mills").
+        SetInt("age", 3).
+        SetString("location", "Worcester Park").
+        SetString("breed", "Golden Retriever").
+        Build()
 
     featureFlags.mu.Lock()
     featureFlags.instantRollback, _ = ldClient.BoolVariation("instant-rollback", user, false)
     featureFlags.newShopFeature, _ = ldClient.BoolVariation("new-shop-feature", user, false)
+    featureFlags.v3Feature, _ = ldClient.BoolVariation("v3-feature", user, false)
     featureFlags.mu.Unlock()
 
     setupFlagListeners(user)
