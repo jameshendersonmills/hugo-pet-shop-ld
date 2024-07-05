@@ -13,33 +13,43 @@ import (
     "github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
 
+// Global LaunchDarkly client
 var ldClient *ld.LDClient
 
+// FeatureFlags holds the feature flag states with a mutex for concurrent access
 type FeatureFlags struct {
     instantRollback bool
     newShopFeature  bool
-    v3Feature       bool // Add this line
+    v3Feature       bool
     mu              sync.RWMutex
 }
+
 var featureFlags = &FeatureFlags{}
+
+// sseClients manages the set of SSE clients
 var sseClients = struct {
     mu      sync.Mutex
     clients map[chan bool]struct{}
 }{clients: make(map[chan bool]struct{})}
 
 func main() {
+    // LaunchDarkly configuration
     config := ld.Config{
         Events: ldcomponents.SendEvents(),
     }
+
     var err error
+    // Replace the SDK key with your own LaunchDarkly SDK key
     ldClient, err = ld.MakeCustomClient("sdk-00f6231c-4043-43e2-93bb-e9eab88a6d6b", config, 10*time.Second)
     if err != nil {
         log.Fatalf("Error initializing LaunchDarkly client: %s", err)
     }
     defer ldClient.Close()
 
+    // Replace "example-user-key" with your own user key
     user := ldcontext.New("example-user-key")
 
+    // Initialize feature flags
     featureFlags.mu.Lock()
     featureFlags.instantRollback, _ = ldClient.BoolVariation("instant-rollback", user, false)
     featureFlags.newShopFeature, _ = ldClient.BoolVariation("new-shop-feature", user, false)
@@ -54,46 +64,44 @@ func main() {
     log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
+// setupFlagListeners sets up listeners for feature flag changes
 func setupFlagListeners(user ldcontext.Context) {
-    updateCh1 := ldClient.GetFlagTracker().AddFlagValueChangeListener("instant-rollback", user, ldvalue.Bool(false))
-    go func() {
-        for event := range updateCh1 {
-            if event.Key == "instant-rollback" {
-                featureFlags.mu.Lock()
-                featureFlags.instantRollback = event.NewValue.BoolValue()
-                featureFlags.mu.Unlock()
-                notifyClients()
-                log.Printf("Flag %q for context %q has changed from %s to %s", event.Key, user.Key(), event.OldValue, event.NewValue)
-            }
-        }
-    }()
+    setupListener("instant-rollback", user, func(newValue bool) {
+        featureFlags.mu.Lock()
+        featureFlags.instantRollback = newValue
+        featureFlags.mu.Unlock()
+        notifyClients()
+        log.Printf("Flag 'instant-rollback' for context %q has changed to %t", user.Key(), newValue)
+    })
 
-    updateCh2 := ldClient.GetFlagTracker().AddFlagValueChangeListener("new-shop-feature", user, ldvalue.Bool(false))
+    setupListener("new-shop-feature", user, func(newValue bool) {
+        featureFlags.mu.Lock()
+        featureFlags.newShopFeature = newValue
+        featureFlags.mu.Unlock()
+        notifyClients()
+        log.Printf("Flag 'new-shop-feature' for context %q has changed to %t", user.Key(), newValue)
+    })
+
+    setupListener("v3-feature", user, func(newValue bool) {
+        featureFlags.mu.Lock()
+        featureFlags.v3Feature = newValue
+        featureFlags.mu.Unlock()
+        notifyClients()
+        log.Printf("Flag 'v3-feature' for context %q has changed to %t", user.Key(), newValue)
+    })
+}
+
+// setupListener is a helper function to set up a flag value change listener
+func setupListener(flagKey string, user ldcontext.Context, handler func(newValue bool)) {
+    updateCh := ldClient.GetFlagTracker().AddFlagValueChangeListener(flagKey, user, ldvalue.Bool(false))
     go func() {
-        for event := range updateCh2 {
-            if event.Key == "new-shop-feature" {
-                featureFlags.mu.Lock()
-                featureFlags.newShopFeature = event.NewValue.BoolValue()
-                featureFlags.mu.Unlock()
-                notifyClients()
-                log.Printf("Flag %q for context %q has changed from %s to %s", event.Key, user.Key(), event.OldValue, event.NewValue)
-            }
-        }
-    }()
-    updateV3 := ldClient.GetFlagTracker().AddFlagValueChangeListener("v3-feature", user, ldvalue.Bool(false))
-    go func() {
-        for event := range updateV3 {
-            if event.Key == "v3-feature" {
-                featureFlags.mu.Lock()
-                featureFlags.v3Feature = event.NewValue.BoolValue()
-                featureFlags.mu.Unlock()
-                notifyClients()
-                log.Printf("Flag %q for context %q has changed from %s to %s", event.Key, user.Key(), event.OldValue, event.NewValue)
-            }
+        for event := range updateCh {
+            handler(event.NewValue.BoolValue())
         }
     }()
 }
 
+// notifyClients notifies all SSE clients about an update
 func notifyClients() {
     sseClients.mu.Lock()
     defer sseClients.mu.Unlock()
@@ -105,6 +113,7 @@ func notifyClients() {
     }
 }
 
+// homeHandler handles the home page requests
 func homeHandler(w http.ResponseWriter, r *http.Request) {
     featureFlags.mu.RLock()
     instantRollback := featureFlags.instantRollback
@@ -135,18 +144,18 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
     if newShopFeature {
         fmt.Fprintln(w, `<div class="map"><iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2522.314574568677!2d-0.6160482840138047!3d51.76069337967569!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0xbfb195792f22448f!2sRoss%20%26%20Friends%20Dog%20Experience!5e0!3m2!1sen!2suk!4v1622549094231!5m2!1sen!2suk" style="height: 450px;" allowfullscreen="" loading="lazy"></iframe><h2>Best Dog Park in the UK!</h2></div>`)
     }
-    fmt.Fprintln(w, `</div></div><div class="footer"><p>&copy; 2024 Hugo's Pet Shop. All rights reserved.</p></div><script>const evtSource = new EventSource("/events"); evtSource.onmessage = function(event) { location.reload(); };</script></body></html>`)
     if v3Feature {
-    fmt.Fprintln(w, `<div class="item" style="color: #333; background-color: #f8f9fa;">
-        <h2>Golden Retriever Jokes</h2>
-        <p>Why did the Golden Retriever sit in the shade? He didn't want to be a hot dog!</p>
-        <p>What do you get when you cross a Golden Retriever and a telephone? A golden receiver!</p>
-        <p>What do you call a frozen dog? A pupsicle!</p>
-    </div>`)
-}
+        fmt.Fprintln(w, `<div class="item" style="color: #333; background-color: #f8f9fa;">
+            <h2>Golden Retriever Jokes</h2>
+            <p>Why did the Golden Retriever sit in the shade? He didn't want to be a hot dog!</p>
+            <p>What do you get when you cross a Golden Retriever and a telephone? A golden receiver!</p>
+            <p>What do you call a frozen dog? A pupsicle!</p>
+        </div>`)
     }
+    fmt.Fprintln(w, `</div></div><div class="footer"><p>&copy; 2024 Hugo's Pet Shop. All rights reserved.</p></div><script>const evtSource = new EventSource("/events"); evtSource.onmessage = function(event) { location.reload(); };</script></body></html>`)
+}
 
-
+// sseHandler handles Server
 func sseHandler(w http.ResponseWriter, r *http.Request) {
     flusher, ok := w.(http.Flusher)
     if !ok {
