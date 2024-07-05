@@ -53,7 +53,7 @@ This is a Go-based web application for Hugo's Pet Shop that leverages LaunchDark
 
 ## Feature Flags
 
-The application uses the following feature flags:
+The application uses the following feature flags which have been setup in the LaunchDarkly UI already:
 
 1. `instant-rollback`: Controls the display of the old or new version of the homepage.
 2. `new-shop-feature`: Controls the display of a Google Maps iframe showing the best dog park in the UK.
