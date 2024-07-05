@@ -1,4 +1,4 @@
-<!-- ⚠️ This README has been generated from the file(s) "blueprint.md" ⚠️--><h1>Hugo's Pet Store with Go & LaunchDarkly</h1>
+<h1>Hugo's Pet Store with Go & LaunchDarkly</h1>
 
 Pre-Reqs:
 - Make sure you have a LaunchDarkly SDK Key
