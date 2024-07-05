@@ -1,0 +1,38 @@
+name: Update README
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  goreadme:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v2
+
+    - name: Set safe directory
+      run: git config --global --add safe.directory /github/workspace
+
+    - name: Update readme according to Go doc
+      uses: posener/goreadme@v1
+      with:
+        badge-travisci: 'true'
+        badge-codecov: 'true'
+        badge-godoc: 'true'
+        badge-goreadme: 'true'
+        GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
+    - name: Commit and push changes
+      run: |
+        git add README.md
+        git commit -m "Update README according to Go doc"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
