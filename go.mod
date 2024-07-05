@@ -21,6 +21,4 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	golang.org/x/exp v0.0.0-20220823124025-807a23277127 // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	gopkg.in/ghodss/yaml.v1 v1.0.0 // indirect
-	gopkg.in/yaml.v2 v2.3.0 // indirect
 )

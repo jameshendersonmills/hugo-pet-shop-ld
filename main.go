@@ -4,14 +4,24 @@ import (
     "fmt"
     "log"
     "net/http"
+    "sync"
     "time"
 
     ld "github.com/launchdarkly/go-server-sdk/v7"
     "github.com/launchdarkly/go-server-sdk/v7/ldcomponents"
     "github.com/launchdarkly/go-sdk-common/v3/ldcontext"
+    "github.com/launchdarkly/go-sdk-common/v3/ldvalue"
 )
 
 var ldClient *ld.LDClient
+
+type FeatureFlags struct {
+    instantRollback bool
+    newShopFeature  bool
+    mu              sync.RWMutex
+}
+
+var featureFlags = &FeatureFlags{}
 
 func main() {
     // Set up LaunchDarkly client configuration
@@ -27,28 +37,54 @@ func main() {
     }
     defer ldClient.Close()
 
+    // Identify the user
+    user := ldcontext.New("example-user-key")
+
+    // Set up initial flag values
+    featureFlags.mu.Lock()
+    featureFlags.instantRollback, _ = ldClient.BoolVariation("instant-rollback", user, false)
+    featureFlags.newShopFeature, _ = ldClient.BoolVariation("new-shop-feature", user, false)
+    featureFlags.mu.Unlock()
+
+    // Set up flag value change listener for instant-rollback
+    updateCh1 := ldClient.GetFlagTracker().AddFlagValueChangeListener("instant-rollback", user, ldvalue.Bool(false))
+    go func() {
+        for event := range updateCh1 {
+            if event.Key == "instant-rollback" {
+                featureFlags.mu.Lock()
+                featureFlags.instantRollback = event.NewValue.BoolValue()
+                featureFlags.mu.Unlock()
+                log.Printf("Flag %q for context %q has changed from %s to %s", event.Key, user.Key(), event.OldValue, event.NewValue)
+            }
+        }
+    }()
+
+    // Set up flag value change listener for new-shop-feature
+    updateCh2 := ldClient.GetFlagTracker().AddFlagValueChangeListener("new-shop-feature", user, ldvalue.Bool(false))
+    go func() {
+        for event := range updateCh2 {
+            if event.Key == "new-shop-feature" {
+                featureFlags.mu.Lock()
+                featureFlags.newShopFeature = event.NewValue.BoolValue()
+                featureFlags.mu.Unlock()
+                log.Printf("Flag %q for context %q has changed from %s to %s", event.Key, user.Key(), event.OldValue, event.NewValue)
+            }
+        }
+    }()
+
     // HTTP handler for the home page
     http.HandleFunc("/", homeHandler)
+
     log.Println("Starting server on :8080")
     log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 // Home page handler
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-    user := ldcontext.New("example-user-key")
-
-    // Check feature flags
-    showNewHomepage, err := ldClient.BoolVariation("new-homepage", user, false)
-    if err != nil {
-        http.Error(w, "Error reading feature flag", http.StatusInternalServerError)
-        return
-    }
-
-    newShopFeature, err := ldClient.BoolVariation("new-shop-feature", user, false)
-    if err != nil {
-        http.Error(w, "Error reading feature flag", http.StatusInternalServerError)
-        return
-    }
+    featureFlags.mu.RLock()
+    instantRollback := featureFlags.instantRollback
+    newShopFeature := featureFlags.newShopFeature
+    featureFlags.mu.RUnlock()
 
     fmt.Fprintln(w, `<html><head><title>Hugo's Pet Shop</title>`)
     fmt.Fprintln(w, `<style>
@@ -78,7 +114,7 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
             justify-content: space-around;
             flex-wrap: wrap;
         }
-        .product {
+        .item {
             background-color: white;
             border: 1px solid #ddd;
             border-radius: 4px;
@@ -88,16 +124,16 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
             width: calc(33% - 40px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        .product img {
+        .item img {
             max-width: 100%;
             border-bottom: 1px solid #ddd;
             margin-bottom: 15px;
         }
-        .product h2 {
+        .item h2 {
             font-size: 1.5em;
             margin: 0 0 10px;
         }
-        .product p {
+        .item p {
             font-size: 1em;
             color: #666;
             margin: 0 0 15px;
@@ -110,32 +146,44 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
             margin-top: 20px;
         }
         .map {
-            margin-top: 20px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 20px;
+            padding: 20px;
             text-align: center;
+            width: calc(50% - 40px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .map iframe {
+            width: 100%;
+            border: none;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 15px;
         }
     </style></head><body>`)
 
     fmt.Fprintln(w, `<div class="header"><h1>Hugo's Pet Shop</h1></div>`)
     fmt.Fprintln(w, `<div class="container"><div class="main">`)
 
-    if showNewHomepage {
-        fmt.Fprintln(w, `<div class="product">
-            <img src="https://www.pdsa.org.uk/media/7657/golden-retriever-gallery-1.jpg?" alt="Golden Retriever">
-            <h2>Golden Retriever</h2>
-            <p>Welcome to the new homepage of Hugo's Pet Shop!</p>
-        </div>`)
-    } else {
-        fmt.Fprintln(w, `<div class="product">
+    if instantRollback {
+        fmt.Fprintln(w, `<div class="item">
             <img src="https://www.akc.org/wp-content/uploads/2017/11/Bernese-Mountain-Dog_Puppy_Bone.jpg" alt="Bernese Mountain Dog">
             <h2>Bernese Mountain Dog</h2>
-            <p>Welcome to Hugo's Pet Shop!</p>
+            <p>Welcome to Hugo's Pet Shop! Oh no, you're still on the old version with the incorrect dog (although still cute)</p>
+        </div>`)
+    } else {
+        fmt.Fprintln(w, `<div class="item">
+            <img src="https://www.pdsa.org.uk/media/7657/golden-retriever-gallery-1.jpg?" alt="Golden Retriever">
+            <h2>Golden Retriever</h2>
+            <p>Welcome to the new homepage of Hugo's Pet Shop! This is the new version of the app with the correct dog - congratulations!</p>
         </div>`)
     }
 
     if newShopFeature {
         fmt.Fprintln(w, `<div class="map">
-            <h2>Our Location</h2>
-            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2522.314574568677!2d-0.6160482840138047!3d51.76069337967569!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0xbfb195792f22448f!2sRoss%20%26%20Friends%20Dog%20Experience!5e0!3m2!1sen!2suk!4v1622549094231!5m2!1sen!2suk" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2522.314574568677!2d-0.6160482840138047!3d51.76069337967569!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0xbfb195792f22448f!2sRoss%20%26%20Friends%20Dog%20Experience!5e0!3m2!1sen!2suk!4v1622549094231!5m2!1sen!2suk" style="height: 450px;" allowfullscreen="" loading="lazy"></iframe>
+            <h2>Best Dog Park in the UK!</h2>
         </div>`)
     }
 
