@@ -18,9 +18,9 @@ var ldClient *ld.LDClient
 type FeatureFlags struct {
     instantRollback bool
     newShopFeature  bool
+    v3Feature       bool // Add this line
     mu              sync.RWMutex
 }
-
 var featureFlags = &FeatureFlags{}
 var sseClients = struct {
     mu      sync.Mutex
@@ -80,6 +80,18 @@ func setupFlagListeners(user ldcontext.Context) {
             }
         }
     }()
+    updateV3 := ldClient.GetFlagTracker().AddFlagValueChangeListener("v3-feature", user, ldvalue.Bool(false))
+    go func() {
+        for event := range updateV3 {
+            if event.Key == "v3-feature" {
+                featureFlags.mu.Lock()
+                featureFlags.v3Feature = event.NewValue.BoolValue()
+                featureFlags.mu.Unlock()
+                notifyClients()
+                log.Printf("Flag %q for context %q has changed from %s to %s", event.Key, user.Key(), event.OldValue, event.NewValue)
+            }
+        }
+    }()
 }
 
 func notifyClients() {
@@ -97,6 +109,7 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
     featureFlags.mu.RLock()
     instantRollback := featureFlags.instantRollback
     newShopFeature := featureFlags.newShopFeature
+    v3Feature := featureFlags.v3Feature
     featureFlags.mu.RUnlock()
 
     fmt.Fprintln(w, `<html><head><title>Hugo's Pet Shop</title><style>
@@ -123,6 +136,13 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
         fmt.Fprintln(w, `<div class="map"><iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2522.314574568677!2d-0.6160482840138047!3d51.76069337967569!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0xbfb195792f22448f!2sRoss%20%26%20Friends%20Dog%20Experience!5e0!3m2!1sen!2suk!4v1622549094231!5m2!1sen!2suk" style="height: 450px;" allowfullscreen="" loading="lazy"></iframe><h2>Best Dog Park in the UK!</h2></div>`)
     }
     fmt.Fprintln(w, `</div></div><div class="footer"><p>&copy; 2024 Hugo's Pet Shop. All rights reserved.</p></div><script>const evtSource = new EventSource("/events"); evtSource.onmessage = function(event) { location.reload(); };</script></body></html>`)
+    if v3Feature {
+        fmt.Fprintln(w, `<div class="item" style="color: red; background-color: #ffd1d1;">
+            <h2>Error Detected!</h2>
+            <p>Urgent: System failure imminent! Please contact support immediately.</p>
+        </div>`)
+    }
+
 }
 
 func sseHandler(w http.ResponseWriter, r *http.Request) {
