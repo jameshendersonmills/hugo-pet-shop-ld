@@ -26,16 +26,46 @@ This is a Go-based web application for 'Hugo the Golden' (James' dog!) that leve
 
 ### Configuration
 
-1. Replace the LaunchDarkly SDK key in `main.go`:
+1. Define your FeatureFlags struct in `main.go` with your own definitons:
+    ```go
+    // FeatureFlags holds the feature flag states with a mutex for concurrent access
+    type FeatureFlags struct {
+    instantRollback bool
+    newShopFeature  bool
+    v3Feature       bool
+    ```
+
+2. Replace the LaunchDarkly SDK key in `main.go`:
     ```go
     // Replace the SDK key with your own LaunchDarkly SDK key
     ldClient, err = ld.MakeCustomClient("YOUR_SDK_KEY", config, 10*time.Second)
     ```
 
-2. Replace the user key in `main.go` if you want to track a specific user for context:
+3. Replace + extend the user key in `main.go` if you want to track a specific user for context and attributes:
     ```go
     // Replace "example-user-key" with your own user key
-    user := ldcontext.New("YOUR_USER_KEY")
+    user := ldcontext.NewBuilder("Hugo").
+        SetString("firstName", "FirstName").
+        SetString("lastName", "LastName").
+    ```
+
+4. Ensure your FeatureFlags match those created in the LaunchDarkly UI in `main.go`:
+    ```go
+    featureFlags.instantRollback, _ = ldClient.BoolVariation("instant-rollback", user, false)
+    featureFlags.newShopFeature, _ = ldClient.BoolVariation("new-shop-feature", user, false)
+    ```
+
+5. Confirm your listeners are defined correctly to detect feature flag changes - these should match the above definition
+    ```go
+    setupListener("instant-rollback", user, func(newValue bool) {
+    setupListener("new-shop-feature", user, func(newValue bool) {
+    ```
+
+6. Confirm your definition are correct for the homeHandler 
+    ```go
+    featureFlags.mu.RLock()
+    instantRollback := featureFlags.instantRollback
+    newShopFeature := featureFlags.newShopFeature
     ```
 
 ### Running the Application
@@ -58,7 +88,7 @@ This is a Go-based web application for 'Hugo the Golden' (James' dog!) that leve
 
 - `main.go`: The main application file that initializes the LaunchDarkly client, sets up feature flag listeners, and defines HTTP handlers.
 - `Hugo-V3/main_go_hugo.go`: A variant of the main application file that provides a new context for LaunchDarkly, attributes & includes additional functionality for displaying Golden Retriever jokes when the `v3-feature` flag is enabled. It moves the joke section above the footer and centers it on the page. The joke section includes a button that, when clicked, displays a new joke from a predefined list. This file demonstrates how to dynamically update content based on feature flags and user interactions (Aligned to Metrics and Experimentation)
-- `utils/kill_v3.go`:Contains utility functions, including the kill switch functionality.
+- `utils/kill_v3.go`:Contains utility functions, including the kill switch functionality (waiting on Enterprise licence to complete the test)
 - `FeatureFlags`: A struct that holds the state of feature flags with concurrent access control.
 - `sseClients`: A struct that manages the set of SSE clients.
 
@@ -68,7 +98,7 @@ The application uses the following feature flags which have been setup in the La
 
 1. `instant-rollback`: Controls the display of the old or new version of the homepage.
 2. `new-shop-feature`: Controls the display of a Google Maps iframe showing the best dog park in the UK.
-3. `v3-feature`: Controls the display of a section with Golden Retriever jokes.
+3. `v3-feature`: (Hugo-V3): Controls the display of a section with Golden Retriever jokes.
 
 ## HTTP Handlers
 

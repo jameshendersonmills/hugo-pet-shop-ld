@@ -81,14 +81,7 @@ func setupFlagListeners(user ldcontext.Context) {
         notifyClients()
         log.Printf("Flag 'new-shop-feature' for context %q has changed to %t", user.Key(), newValue)
     })
-
-    setupListener("v3-feature", user, func(newValue bool) {
-        featureFlags.mu.Lock()
-        featureFlags.v3Feature = newValue
-        featureFlags.mu.Unlock()
-        notifyClients()
-        log.Printf("Flag 'v3-feature' for context %q has changed to %t", user.Key(), newValue)
-    })
+    
 }
 
 // setupListener is a helper function to set up a flag value change listener
