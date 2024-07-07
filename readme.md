@@ -45,8 +45,8 @@ This is a Go-based web application for 'Hugo the Golden' (James' dog!) that leve
     ```go
     // Replace "example-user-key" with your own user key
     user := ldcontext.NewBuilder("Hugo").
-        SetString("firstName", "FirstName").
-        SetString("lastName", "LastName").
+    SetString("firstName", "FirstName").
+    SetString("lastName", "LastName").
     ```
 
 4. Ensure your FeatureFlags match those created in the LaunchDarkly UI in `main.go`:
