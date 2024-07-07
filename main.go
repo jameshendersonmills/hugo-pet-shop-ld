@@ -20,7 +20,6 @@ var ldClient *ld.LDClient
 type FeatureFlags struct {
     instantRollback bool
     newShopFeature  bool
-    v3Feature       bool
     mu              sync.RWMutex
 }
 
@@ -81,7 +80,7 @@ func setupFlagListeners(user ldcontext.Context) {
         notifyClients()
         log.Printf("Flag 'new-shop-feature' for context %q has changed to %t", user.Key(), newValue)
     })
-    
+
 }
 
 // setupListener is a helper function to set up a flag value change listener
@@ -111,7 +110,6 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
     featureFlags.mu.RLock()
     instantRollback := featureFlags.instantRollback
     newShopFeature := featureFlags.newShopFeature
-    v3Feature := featureFlags.v3Feature
     featureFlags.mu.RUnlock()
 
     fmt.Fprintln(w, `<html><head><title>Hugo's Pet Shop</title><style>
