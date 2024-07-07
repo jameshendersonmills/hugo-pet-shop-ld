@@ -30,7 +30,7 @@ This is a Go-based web application for Hugo's Pet Shop that leverages LaunchDark
     ldClient, err = ld.MakeCustomClient("YOUR_SDK_KEY", config, 10*time.Second)
     ```
 
-2. Replace the user key in `main.go`:
+2. Replace the user key in `main.go` if you want to track a specific user for context:
     ```go
     // Replace "example-user-key" with your own user key
     user := ldcontext.New("YOUR_USER_KEY")
