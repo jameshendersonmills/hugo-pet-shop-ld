@@ -1,6 +1,6 @@
-# Hugo's Pet Shop Feature Flag Application
+# Hugo the Golden LaunchDarkly Application
 
-This is a Go-based web application for Hugo's Pet Shop that leverages LaunchDarkly feature flags to dynamically control the content of the website. The application demonstrates how to implement feature flags, handle real-time updates with Server-Sent Events (SSE), and manage concurrent access to feature flag states.
+This is a Go-based web application for 'Hugo the Golden' (James' dog!) that leverages LaunchDarkly feature flags to dynamically control the content of the website. The application demonstrates how to implement feature flags, handle real-time updates with Server-Sent Events (SSE), manage concurrent access to feature flag states and additional context attributes to enable both individual targeting and rule-based targeting from within the LaunchDarkly interface. The code also includes the functionality required to build a Metric and to Measure this as part of an experimentation, however we were unable to test this without an Enterprise plan.
 
 ## Prerequisites
 
