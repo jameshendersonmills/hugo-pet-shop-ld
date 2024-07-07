@@ -45,6 +45,13 @@ This is a Go-based web application for 'Hugo the Golden' (James' dog!) that leve
 
 2. Open your web browser and navigate to `http://localhost:8080`.
 
+3. If you want to run the V3 feature: 
+    ```sh
+    cd Hugo-V3
+    go run main_go_hugo.go
+    ```
+
+
 ## Application Structure
 
 - `main.go`: The main application file that initializes the LaunchDarkly client, sets up feature flag listeners, and defines HTTP handlers.
