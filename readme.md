@@ -48,6 +48,7 @@ This is a Go-based web application for Hugo's Pet Shop that leverages LaunchDark
 ## Application Structure
 
 - `main.go`: The main application file that initializes the LaunchDarkly client, sets up feature flag listeners, and defines HTTP handlers.
+- `main_go_hugo.go`: A variant of the main application file that provides a new context for LaunchDarkly, attributes & includes additional functionality for displaying Golden Retriever jokes when the `v3-feature` flag is enabled. It moves the joke section above the footer and centers it on the page. The joke section includes a button that, when clicked, displays a new joke from a predefined list. This file demonstrates how to dynamically update content based on feature flags and user interactions (Aligned to Metrics and Experimentation)
 - `FeatureFlags`: A struct that holds the state of feature flags with concurrent access control.
 - `sseClients`: A struct that manages the set of SSE clients.
 
