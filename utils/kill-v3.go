@@ -1,27 +1,15 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 )
 
-func disableFeatureFlag(apiKey, projectKey, flagKey, environmentKey string) error {
-	url := fmt.Sprintf("https://app.launchdarkly.com/api/v2/flags/%s/%s", projectKey, flagKey)
-	body := bytes.NewBuffer([]byte(fmt.Sprintf(`[
-		{
-			"op": "replace",
-			"path": "/environments/%s/on",
-			"value": false
-		}
-	]`, environmentKey)))
-	req, err := http.NewRequest("PATCH", url, body)
+func triggerWebhook(webhookURL string) error {
+	req, err := http.NewRequest("POST", webhookURL, nil)
 	if err != nil {
 		return err
 	}
-
-	req.Header.Add("Authorization", fmt.Sprintf("api-%s", apiKey))
-	req.Header.Add("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -31,20 +19,17 @@ func disableFeatureFlag(apiKey, projectKey, flagKey, environmentKey string) erro
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("failed to disable feature flag, status code: %d", resp.StatusCode)
+		return fmt.Errorf("failed to trigger webhook, status code: %d", resp.StatusCode)
 	}
 
-	fmt.Println("Feature flag disabled successfully")
+	fmt.Println("Webhook triggered successfully")
 	return nil
 }
 
 func main() {
-	apiKey := "api-73878f9b-9bc3-4b5c-9d39-a6c8130c5b49"
-	projectKey := "default"
-	flagKey := "v3-feature"
-	environmentKey := "production"
+	webhookURL := "https://app.launchdarkly.com/webhook/triggers/66982d637a37db0fe8a3410a/0c5271df-14fb-428f-b6dc-ceff5d12119b"
 
-	err := disableFeatureFlag(apiKey, projectKey, flagKey, environmentKey)
+	err := triggerWebhook(webhookURL)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
